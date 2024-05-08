@@ -1,0 +1,35 @@
+/**
+    {{function.description}}
+
+    {% if function.parameters.length > 0 %}
+    @param {object} params - The parameters needed to configure {{function.name}}
+    {% endif %}
+    {% for parameter in function.parameters %}
+    @param {% raw %}{{% endraw %}{{parameter.type}}{% if parameter.optional %}={% endif %}{% raw %}}{% endraw %} params.{{parameter.name}} - {{parameter.documentation}}
+    {% endfor %}
+    @see {@link https://techdocs.akamai.com/{{function.help.project}}/docs/{{function.help.slug}} | Akamai Techdocs}
+    @returns {% raw %}{{% endraw %}{{function.returnType}}{% raw %}}{% endraw %} The mutated property
+
+*/
+{{ function.name }}({% if function.parameters.length >0 %}params: {
+    {% for parameter in function.parameters %}
+        /** 
+            {{parameter.documentation}}
+            {#@type {% raw %}{{% endraw %}{{parameter.type}}{% raw %}}{% endraw %} #}
+        */
+        {{parameter.name}}{% if parameter.optional %}?{% endif %}: {{parameter.type}},
+    {% endfor %}
+}{% endif %}): {{ function.returnType }} {
+    {% for defaultStmt in function.defaultAssignmentStatements %}
+        
+            if (typeof params.{{defaultStmt.name}} === 'undefined'{%
+                if defaultStmt.stmt.length > 0 %}
+                    && ({{defaultStmt.stmt | replace("%s", "params")}})
+                {%endif
+            %}) {
+                params.{{defaultStmt.name}} = {{defaultStmt.value}};
+            }
+        
+    {% endfor %}
+    return this.wrapDelegateResponse(this.delegate.addFromProperty("{{function.type}}", "{{function.papiName}}", {{function.paramsThatAllowPMVars}}, {% if function.parameters.length > 0 %}params{% else %}{}{% endif %}));
+}

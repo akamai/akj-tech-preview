@@ -1,0 +1,101 @@
+
+/**
+ * Akamai PCDN
+ *
+ * Copyright 2024 Akamai Technologies, Inc.
+ *
+ * You may not use this file except in compliance with the License. You may obtain a copy of the License at
+ *
+ * https://github.com/akamai/akj-tech-preview/blob/main/LICENSE
+ */
+
+/** The version of the {@link https://techdocs.akamai.com/property-mgr/reference/rule-format-schemas | Rule Format} used for this build of the API. */
+export const RULE_FORMAT: string = "{{ruleFormat}}";
+
+export class CriteriaBuilder {
+    delegate: any;
+
+    constructor(delegate: any) {
+        this.delegate = delegate;
+    }
+
+    private wrapDelegateResponse(_response: any): CriteriaBuilder {
+        return this;
+    }
+
+    {% for function in criteriaBuilder %}
+        {% include 'function.njk' %}
+    {% endfor %}
+}
+
+export class Property {
+    delegate: any;
+
+    constructor(delegate: any) {
+        this.delegate = delegate;
+    }
+
+    private wrapDelegateResponse(response: any): Property {
+        return new Property(response);
+    }
+
+    /**
+     * Create a rule template where any of the criteria added to the builder must match
+     * 
+     * @param {(cb:CriteriaBuilder) => void} cb 
+     * @returns {Property} The property 
+     */
+    any(cb: (cfg: CriteriaBuilder) => void): Property {
+        return new Property(this.delegate.doAny(cb));
+    }
+
+    /**
+     * Create a rule template where all the criteria added to the builder must match
+     * 
+     * @param {(cb:CriteriaBuilder) => void} cb 
+     * @returns {Property} The property 
+     */
+    all(cb: (cfg: CriteriaBuilder) => void): Property {
+        return new Property(this.delegate.doAll(cb));
+    }
+
+    /**
+     * Create a grouping for keeping similar behaviours together.  This is equivalent to a blank rule template.
+     * 
+     * @param {string} groupName The name for the grouping
+     * @param {string} [comment] A comment to describe what the grouping is for
+     * @returns {Property} The property 
+     */
+    group(groupName: string, comment?: string): Property {
+        return new Property(this.delegate.group(groupName, comment));
+    }
+
+	/**
+	 * Set the name of the current rule.  
+	 */
+	name(ruleName: string): Property {
+		return new Property(this.delegate.name(ruleName));
+	}
+
+	/**
+    * Set the is_secure value in the default rule.
+    */
+	is_secure(secureRule: boolean): Property {
+		return new Property(this.delegate.is_secure(secureRule));
+    }
+
+	/**
+	 * Set the comment for the current rule. 
+	 */
+	comment(comment: string): Property {
+		return new Property(this.delegate.comment(comment));
+	}
+    
+    {% for function in propertyCriteria %}
+        {% include 'function.njk' %}
+    {% endfor %}
+
+    {% for function in propertyBehaviours %}
+        {% include 'function.njk' %}
+    {% endfor %}
+}
