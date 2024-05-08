@@ -1,0 +1,33 @@
+{
+	"rules": [
+		{
+			"cpCode": 1234,
+			"paths": ["/en"],
+			"cachingTime": "12h",
+			"origin": "example.com",
+			"cacheKey": {
+				"cookies": ["testCookie1", "testCookie2"],
+				"queryParams": ["testQueryParam1", "testQueryParam2"]
+			},
+			"edgeworkerId": 1234
+		},
+		{
+			"cpCode": 1234,
+			"paths": ["/fr"],
+			"cachingTime": "20d",
+			"origin": "example.com",
+			"edgeworkerId": 1234
+		},
+		{
+			"cpCode": 1234,
+			"paths": ["/spa"],
+			"cachingTime": "12h",
+			"origin": "example.com",
+			"cacheKey": {
+				"cookies": ["testCookie3", "testCookie4"],
+				"queryParams": ["testQueryParam3", "testQueryParam4"]
+			},
+			"edgeworkerId": 1234
+		}
+	]
+}

@@ -1,0 +1,98 @@
+/**
+ * Akamai PCDN
+ *
+ * Copyright 2024 Akamai Technologies, Inc.
+ *
+ * You may not use this file except in compliance with the License. You may obtain a copy of the License at
+ *
+ * https://github.com/akamai/akj-tech-preview/blob/main/LICENSE
+ */
+//@ts-check
+
+const {Property} = require('akj-tech-preview');
+
+/**
+ * Called by the PCDN runner to configure the property referenced in 
+ * `property.json`. To activate the configuring on staging, run `npx pcdn`
+ * in the parent directory. 
+ * 
+ * @param {Property} config A builder used to configure the property. 
+ */
+function onConfig(config) {
+    /**
+	 * Setup a sample property with:
+	 *     - a default origin set to www.akamai.com
+	 *     - a default caching behaviour that is caching content for 1 day.  This might not be appropriate for your usecase.
+	 *     - the provided CP Code
+	 *     - the provided EdgeWorker.
+	 *     - a sample path match
+	 *
+	 *     TODO: Replace the orgin hostname with your hostname.  Generation is pointing to www.akamai.com and should use a different origin.
+	 */
+	config
+		.setOrigin({
+			originType: 'CUSTOMER',
+			hostname: 'www.akamai.com',
+			forwardHostHeader: 'REQUEST_HOST_HEADER',
+			cacheKeyHostname: 'REQUEST_HOST_HEADER',
+		})
+		.setCaching({
+			behavior: 'MAX_AGE',
+			ttl: '1d',
+		})
+		.setCpCode({
+			value: {
+				id: {{cpcodeID}},
+				description: 'Add some description',
+				products: {{productsID | dump | replace('"', "'")}},
+				cpCodeLimits: null,
+				name: '{{cpcodeName}}',
+			},
+		});
+
+    // Add EdgeWorker to your property
+	config.setEdgeWorker({
+		enabled: true,
+		edgeWorkerId: '{{edgeWorkerId}}',
+	});
+
+	/** 
+        The following is an example of adding a Criteria based on the file extension.  The example is doing the following:
+        
+        - Check that the extension is a specific extension.
+        - Name the template `Images` with a comment explaining what is occurring.
+        - Set the caching of images to 30 days.
+    */
+	config
+		.onFileExtension({
+			values: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'jp2', 'ico', 'svg', 'svgz'],
+		})
+		.name('Images')
+		.comment('Override the default caching behavior for images.')
+		.setCaching({
+			ttl: '30d',
+		});
+
+    /**
+        The following is an example of adding a Criteria based on path matching.  The example is doing the following:
+
+        - Match the path based on a specific single value with a glob matcher for any request with the specified substring
+        - Name the template `EdgeWorkers Page Caching`
+        - Set the caching of any item to 1 hour.
+    */
+	// Add a path based match to change caching rules based on path.  This changes the caching rules for specific pages
+	config
+		.onPath({
+			matchOperator: 'MATCHES_ONE_OF',
+			values: ['/products/serverless-computing-edgeworkers*'],
+		})
+        .name('EdgeWorkers Page Caching')
+		.setCaching({
+			behavior: 'MAX_AGE',
+			ttl: '1h',
+		});
+}
+
+module.exports = {
+    onConfig
+}
