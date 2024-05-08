@@ -5,7 +5,7 @@
  *
  * You may not use this file except in compliance with the License. You may obtain a copy of the License at
  *
- * https://github.com/akamai/akj-tech-preview/blob/main/LICENSE
+ * https://github.com/akamai/akj-tech-preview/blob/main/LICENSE.md
  */
 import * as ag from '../src/agreement';
 import {subtle} from 'node:crypto';

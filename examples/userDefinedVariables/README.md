@@ -2,15 +2,8 @@
 <p align="center"><img src="../../media/akamai-logo-no-tagline-original.png"></p>
 <h1 align="center">Programmable CDN Tech Preview</h1>
 <div align="center">
-  <a href='https://github.com/akamai/akj-tech-preview/releases'>
-    <img src='https://img.shields.io/github/v/release/akamai/akj-tech-preview?style=flat-square'>
-  </a>
-  <a href='https://github.com/akamai/akj-tech-preview/blob/main/LICENSE'>
-    <img src='https://img.shields.io/github/license/akamai/akj-tech-preview?style=flat-square'>
-  </a>
-  <a href="https://npmjs.org/package/akj-tech-preview">
-    <img src="https://img.shields.io/npm/v/akj-tech-preview.svg?style=flat-square" alt="NPM version" />
-  </a>
+  <a href='https://github.com/akamai/akj-tech-preview/blob/main/LICENSE.md'><img src='https://img.shields.io/badge/license-custom-orange?style=flat-square' alt="License"></a>
+  <a href="https://npmjs.org/package/akj-tech-preview"><img src="https://img.shields.io/npm/v/akj-tech-preview.svg?style=flat-square" alt="NPM version" /></a>
 </div>
 
 <br />
