@@ -14,9 +14,33 @@
  */
 export const RULE_FORMAT: string = 'v2024-02-12';
 
+/**
+ * Configure a Property with the PCDN builder pattern.
+ *
+ * @callback ConfigureProperty
+ * @param {Property} config The Property that will be configured.
+ * @returns {void} The function will not return a value. The `config` parameter is modified directly.
+ */
+export type ConfigureProperty = (config: Property) => void;
+
+/**
+ * A builder for creating matchers. This class contains the the `on` functions that allow constraining logic based on
+ * conditional logic. Each `on` function corresponds to a specific match that can be done within a Property.
+ *
+ * @see https://techdocs.akamai.com/property-mgr/docs/matches
+ */
 export class CriteriaBuilder {
 	delegate: any;
 
+	/**
+	 * Create a new CriteriaBuilder.
+	 *
+	 * When writing tests requiring a CriteriaBuilder, the provided delegate should be a `MatchRuleBuilder`.
+	 *
+	 *     let config = new CriteriaBuilder(new MatchRuleBuilder());
+	 *
+	 * @param {any} delegate The delegate
+	 */
 	constructor(delegate: any) {
 		this.delegate = delegate;
 	}
@@ -384,15 +408,28 @@ export class CriteriaBuilder {
 	 * Match the assigned content provider code.
 	 *
 	 * @param {object} params - The parameters needed to configure onMatchCpCode
-	 * @param {any} params.value - Specifies the CP code as an object. You only need to provide the initial `id` to
-	 *   match the CP code, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree.
-	 *   Additional CP code details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} params.value
+	 *   - Specifies the CP code as an object. You only need to provide the initial `id` to match the CP code, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
 	 * @returns {CriteriaBuilder} The mutated property
 	 * @see {@link https://techdocs.akamai.com/property-mgr/docs/content-provider-code-match | Akamai Techdocs}
 	 */
 	onMatchCpCode(params: {
 		/** Specifies the CP code as an object. You only need to provide the initial `id` to match the CP code, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		value: any;
+		value: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 	}): CriteriaBuilder {
 		return this.wrapDelegateResponse(this.delegate.addFromProperty('CRITERIA', 'matchCpCode', {}, params));
 	}
@@ -5164,9 +5201,23 @@ export class CriteriaBuilder {
 	}
 }
 
+/**
+ * A builder for creating a Property.
+ *
+ * @see https://techdocs.akamai.com/property-mgr/docs/key-concepts-terms#properties
+ */
 export class Property {
 	delegate: any;
 
+	/**
+	 * Create a new `Property`.
+	 *
+	 * When creating a new Property in tests, the best delegate to start with is a RuleBuilder.
+	 *
+	 *     let config = new Property(new RuleBuilder());
+	 *
+	 * @param {any} delegate
+	 */
 	constructor(delegate: any) {
 		this.delegate = delegate;
 	}
@@ -5196,14 +5247,28 @@ export class Property {
 	}
 
 	/**
-	 * Create a grouping for keeping similar behaviours together. This is equivalent to a blank rule template.
+	 * Create a grouping for keeping similar behaviours together. This is equivalent to a blank rule template. This
+	 * method is equivalent to `newBlankRule()` method.
 	 *
 	 * @param {string} groupName The name for the grouping
 	 * @param {string} [comment] A comment to describe what the grouping is for
 	 * @returns {Property} The property
+	 * @see {@link Property#newBlankRule | newBlankRule} for `newBlankRule()` method.
 	 */
 	group(groupName: string, comment?: string): Property {
 		return new Property(this.delegate.group(groupName, comment));
+	}
+
+	/**
+	 * Create a new blank rule for keeping similar behaviours together. This method is equivalent of `group()` method.
+	 *
+	 * @param {string} ruleName The name for the rule
+	 * @param {string} [comment] A comment to describe what the grouping is for
+	 * @returns {Property} The property
+	 * @see {@link Property#group | group} for `group()` method.
+	 */
+	newBlankRule(ruleName: string, comment?: string): Property {
+		return new Property(this.delegate.group(ruleName, comment));
 	}
 
 	/** Set the name of the current rule. */
@@ -5219,6 +5284,11 @@ export class Property {
 	/** Set the comment for the current rule. */
 	comment(comment: string): Property {
 		return new Property(this.delegate.comment(comment));
+	}
+
+	/** Inserts a Static Configuration File as a child of this node. */
+	importChildRule(pathToStaticConfig: string): Property {
+		return this.delegate.importChildRule(pathToStaticConfig);
 	}
 
 	/**
@@ -5580,15 +5650,28 @@ export class Property {
 	 * Match the assigned content provider code.
 	 *
 	 * @param {object} params - The parameters needed to configure onMatchCpCode
-	 * @param {any} params.value - Specifies the CP code as an object. You only need to provide the initial `id` to
-	 *   match the CP code, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree.
-	 *   Additional CP code details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} params.value
+	 *   - Specifies the CP code as an object. You only need to provide the initial `id` to match the CP code, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
 	 * @returns {Property} The mutated property
 	 * @see {@link https://techdocs.akamai.com/property-mgr/docs/content-provider-code-match | Akamai Techdocs}
 	 */
 	onMatchCpCode(params: {
 		/** Specifies the CP code as an object. You only need to provide the initial `id` to match the CP code, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		value: any;
+		value: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 	}): Property {
 		return this.wrapDelegateResponse(this.delegate.addFromProperty('CRITERIA', 'matchCpCode', {}, params));
 	}
@@ -11212,15 +11295,28 @@ export class Property {
 	 * Content Provider Codes (CP codes) allow you to distinguish various reporting and billing traffic segments, and you need them to access properties. You receive an initial CP code when purchasing Akamai, and you can run the [Create a new CP code](ref:post-cpcodes) operation to generate more. This behavior applies any valid CP code, either as required as a default at the top of the rule tree, or subsequently to override the default. For a CP code to be valid, it needs to be assigned the same contract and product as the property, and the group needs access to it.  For available values, run the [List CP codes](ref:get-cpcodes) operation.
 	 *
 	 * @param {object} params - The parameters needed to configure setCpCode
-	 * @param {any} params.value - Specifies the CP code as an object. You only need to provide the initial `id`,
-	 *   stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code
-	 *   details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} params.value
+	 *   - Specifies the CP code as an object. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
 	 * @returns {Property} The mutated property
 	 * @see {@link https://techdocs.akamai.com/property-mgr/docs/content-provider-code-beh | Akamai Techdocs}
 	 */
 	setCpCode(params: {
 		/** Specifies the CP code as an object. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		value: any;
+		value: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 	}): Property {
 		return this.wrapDelegateResponse(this.delegate.addFromProperty('BEHAVIOR', 'cpCode', {}, params));
 	}
@@ -14676,9 +14772,15 @@ export class Property {
 	 *   the same property.
 	 * @param {boolean} [params.useThrottledCpCode] - Specifies whether to apply an alternative CP code for
 	 *   requests served the alternate response. Default: false.
-	 * @param {any} [params.throttledCpCode] - Specifies the CP code as an object. You only need to provide the
-	 *   initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree.
-	 *   Additional CP code details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} [params.throttledCpCode]
+	 *   - Specifies the CP code as an object. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
 	 * @param {boolean} [params.useThrottledStatusCode] - Allows you to assign a specific HTTP response code to a
 	 *   throttled request. Default: false.
 	 * @param {number} [params.throttledStatusCode] - Specifies the HTTP response code for requests that receive
@@ -14711,7 +14813,14 @@ export class Property {
 		useThrottledCpCode?: boolean;
 
 		/** Specifies the CP code as an object. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		throttledCpCode?: any;
+		throttledCpCode?: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 
 		/** Allows you to assign a specific HTTP response code to a throttled request. Default: false. */
 		useThrottledStatusCode?: boolean;
@@ -16757,13 +16866,24 @@ export class Property {
 	 *   the user agent and the initial image file. Default: true.
 	 * @param {'US' | 'ASIA' | 'AUSTRALIA' | 'EMEA' | 'JAPAN' | 'CHINA'} [params.superCacheRegion] - To optimize
 	 *   caching, assign a region close to your site's heaviest traffic. Default: "US".
-	 * @param {any} params.cpCodeOriginal - Specifies the CP code for which to track Image and Video Manager video
-	 *   traffic. Use this along with `cpCodeTransformed` to track traffic to derivative video content. You only
-	 *   need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the
-	 *   rule tree. Additional CP code details may reflect back in subsequent read-only data.
-	 * @param {any} params.cpCodeTransformed - Specifies the CP code to identify derivative transformed video
-	 *   content. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass
-	 *   the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} params.cpCodeOriginal
+	 *   - Specifies the CP code for which to track Image and Video Manager video traffic. Use this along with `cpCodeTransformed` to track traffic to derivative video content. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} params.cpCodeTransformed
+	 *   - Specifies the CP code to identify derivative transformed video content. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
 	 * @param {boolean} [params.useExistingPolicySet] - Whether to use a previously created policy set that may be
 	 *   referenced in other properties, or create a new policy set to use with this property. A policy set can be
 	 *   shared across multiple properties belonging to the same contract. The behavior populates any changes to the
@@ -16796,10 +16916,24 @@ export class Property {
 		superCacheRegion?: 'US' | 'ASIA' | 'AUSTRALIA' | 'EMEA' | 'JAPAN' | 'CHINA';
 
 		/** Specifies the CP code for which to track Image and Video Manager video traffic. Use this along with `cpCodeTransformed` to track traffic to derivative video content. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		cpCodeOriginal: any;
+		cpCodeOriginal: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 
 		/** Specifies the CP code to identify derivative transformed video content. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		cpCodeTransformed: any;
+		cpCodeTransformed: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 
 		/** Whether to use a previously created policy set that may be referenced in other properties, or create a new policy set to use with this property. A policy set can be shared across multiple properties belonging to the same contract. The behavior populates any changes to the policy set across all properties that reference that set. Default: false. */
 		useExistingPolicySet?: boolean;
@@ -16865,13 +16999,24 @@ export class Property {
 	 *   size possible that retains image quality. Default: true.
 	 * @param {'US' | 'ASIA' | 'AUSTRALIA' | 'EMEA' | 'JAPAN' | 'CHINA'} [params.superCacheRegion] - Specifies a
 	 *   location for your site's heaviest traffic, for use in caching derivatives on edge servers. Default: "US".
-	 * @param {any} params.cpCodeOriginal - Assigns a CP code to track traffic and billing for original images that
-	 *   the Image and Video Manager has not modified. You only need to provide the initial `id`, stripping any
-	 *   [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may
-	 *   reflect back in subsequent read-only data.
-	 * @param {any} params.cpCodeTransformed - Assigns a separate CP code to track traffic and billing for derived
-	 *   images. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass
-	 *   the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} params.cpCodeOriginal
+	 *   - Assigns a CP code to track traffic and billing for original images that the Image and Video Manager has not modified. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} params.cpCodeTransformed
+	 *   - Assigns a separate CP code to track traffic and billing for derived images. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
 	 * @param {boolean} [params.useExistingPolicySet] - Whether to use a previously created policy set that may be
 	 *   referenced in other properties, or create a new policy set to use with this property. A policy set can be
 	 *   shared across multiple properties belonging to the same contract. The behavior populates any changes to the
@@ -16906,10 +17051,24 @@ export class Property {
 		superCacheRegion?: 'US' | 'ASIA' | 'AUSTRALIA' | 'EMEA' | 'JAPAN' | 'CHINA';
 
 		/** Assigns a CP code to track traffic and billing for original images that the Image and Video Manager has not modified. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		cpCodeOriginal: any;
+		cpCodeOriginal: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 
 		/** Assigns a separate CP code to track traffic and billing for derived images. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		cpCodeTransformed: any;
+		cpCodeTransformed: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 
 		/** Whether to use a previously created policy set that may be referenced in other properties, or create a new policy set to use with this property. A policy set can be shared across multiple properties belonging to the same contract. The behavior populates any changes to the policy set across all properties that reference that set. Default: false. */
 		useExistingPolicySet?: boolean;
@@ -16969,8 +17128,24 @@ export class Property {
 	 * @param {boolean} [params.enabled] - 2DO. Default: true.
 	 * @param {boolean} [params.resize] - 2DO. Default: false.
 	 * @param {boolean} [params.applyBestFileType] - 2DO. Default: true.
-	 * @param {any} params.cpCodeOriginal - 2DO.
-	 * @param {any} params.cpCodeTransformed - 2DO.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} params.cpCodeOriginal
+	 *   - 2DO.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} params.cpCodeTransformed
+	 *   - 2DO.
 	 * @param {any} [params.imageSet] - 2DO.
 	 * @param {any} [params.videoSet] - 2DO.
 	 * @returns {Property} The mutated property
@@ -16990,10 +17165,24 @@ export class Property {
 		applyBestFileType?: boolean;
 
 		/** 2DO. */
-		cpCodeOriginal: any;
+		cpCodeOriginal: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 
 		/** 2DO. */
-		cpCodeTransformed: any;
+		cpCodeTransformed: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 
 		/** 2DO. */
 		imageSet?: any;
@@ -17839,9 +18028,15 @@ export class Property {
 	 * @param {string} [params.cexHostname] - Specifies a hostname. PM variables may appear between '{{' and '}}'.
 	 * @param {boolean} [params.cexCustomPath] - Specifies a custom path. Default: true.
 	 * @param {string} [params.cexPath] - Specifies a custom path. PM variables may appear between '{{' and '}}'.
-	 * @param {any} [params.cpCode] - Specifies a CP code for which to log errors for the NetStorage location. You
-	 *   only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer
-	 *   to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} [params.cpCode]
+	 *   - Specifies a CP code for which to log errors for the NetStorage location. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
 	 * @param {200
 	 * 	| 404
 	 * 	| 500
@@ -17991,7 +18186,14 @@ export class Property {
 		cexPath?: string;
 
 		/** Specifies a CP code for which to log errors for the NetStorage location. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		cpCode?: any;
+		cpCode?: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 
 		/** Assigns a new HTTP status code to the failure response. Default: 200. */
 		statusCode?:
@@ -19065,9 +19267,15 @@ export class Property {
 	 *   waiting room. Default: 200.
 	 * @param {boolean} [params.waitingRoomUseCpCode] - Allows you to assign a different CP code that tracks any
 	 *   requests that are sent to the waiting room. Default: false.
-	 * @param {any} [params.waitingRoomCpCode] - Specifies a CP code for requests sent to the waiting room. You
-	 *   only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer
-	 *   to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
+	 * @param {{
+	 * 	id: number;
+	 * 	name?: string;
+	 * 	description?: string;
+	 * 	createdDate?: number;
+	 * 	cpCodeLimits?: string[];
+	 * 	products?: string[];
+	 * }} [params.waitingRoomCpCode]
+	 *   - Specifies a CP code for requests sent to the waiting room. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data.
 	 * @param {any} [params.waitingRoomNetStorage] - Specifies the NetStorage domain for the waiting room page.
 	 * @param {string} [params.waitingRoomDirectory] - Specifies the NetStorage directory that contains the static
 	 *   waiting room page, with no trailing slash character. PM variables may appear between '{{' and '}}'.
@@ -19171,7 +19379,14 @@ export class Property {
 		waitingRoomUseCpCode?: boolean;
 
 		/** Specifies a CP code for requests sent to the waiting room. You only need to provide the initial `id`, stripping any [`cpc_` prefix](ref:id-prefixes) to pass the integer to the rule tree. Additional CP code details may reflect back in subsequent read-only data. */
-		waitingRoomCpCode?: any;
+		waitingRoomCpCode?: {
+			id: number;
+			name?: string;
+			description?: string;
+			createdDate?: number;
+			cpCodeLimits?: Array<string>;
+			products?: Array<string>;
+		};
 
 		/** Specifies the NetStorage domain for the waiting room page. */
 		waitingRoomNetStorage?: any;

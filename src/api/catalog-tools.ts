@@ -22,7 +22,7 @@ export async function loadCatalog(catalogPath: string): Promise<Catalog> {
 	const defn: PmCatalog = JSON.parse(await fs.promises.readFile(catalogPath, 'utf-8'));
 
 	// Use the Rule Format specified in the PM catalog so we avoid skew.
-	const pathToRuleFormat = path.join(path.dirname(catalogPath), `${defn.ruleFormat}.json`);
+	const pathToRuleFormat = path.join(path.dirname(catalogPath), `../schema/${defn.ruleFormat}.json`);
 	let file;
 	try {
 		file = await fs.promises.readFile(pathToRuleFormat, 'utf-8');

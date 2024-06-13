@@ -22,6 +22,9 @@ import {validate} from 'class-validator';
 import path from 'node:path';
 import {selectOrCreatePropertyVersion} from '../src/api/property-manager';
 import {mockStoreHttpRequestFn} from './agreement.test';
+import {CliArguments, createLocalFiles} from '../src/akj/akj-impl';
+import fs from 'node:fs';
+import * as os from 'node:os';
 
 /**
  * Test that an array contains the specified REGEX
@@ -62,7 +65,7 @@ class HasStreamsException extends Error {
  *
  * @param {object} root0 The parameters needed to run the CLI
  * @param {function(Property): Property} root0.onConfig The onConfig property
- * @param {function(string): Promise<object>} root0.loadFile The sample property json
+ * @param {function(string): string} root0.loadFile The sample property json
  * @param {boolean} root0.isDryRun True to not actually do the command
  * @param {boolean} root0.printPapiJson True to print papi JSON to the output
  * @param {function(): PropertyManagerAPI} root0.papiApi The PAPI to call. Mocked of course.
@@ -77,7 +80,7 @@ class HasStreamsException extends Error {
 async function run({
 	// These are default values - notice that each one gets an actual value.
 	onConfig = (c: Property): Property => c,
-	loadFile = (_arg: string) => Promise.resolve(JSON.stringify(TRIVIAL_PROPERTY_JS)),
+	loadFile = (_arg: string) => JSON.stringify(TRIVIAL_PROPERTY_JS),
 	isDryRun = true,
 	printPapiJson = true,
 	papiApi = () => {
@@ -90,7 +93,7 @@ async function run({
 }: {
 	// This is the definition of arguments. Each is declared as optional the callers can replace one or more of them.
 	onConfig?: (_: Property) => Property;
-	loadFile?: (_: string) => Promise<{toString: () => string}>;
+	loadFile?: (_: string) => string;
 	isDryRun?: boolean;
 	printPapiJson?: boolean;
 	papiApi?: () => PropertyManagerAPI;
@@ -195,7 +198,7 @@ function mockPapiApi(): {
 
 	api.validateEdgeWorkerBundle.mockResolvedValue({errors: [], warnings: []});
 	api.createEdgeWorkerVersion.mockResolvedValue({edgeWorkerId: 10, version: 'v5'});
-	api.activateEdgeWorkerVersion.mockResolvedValue(undefined);
+	api.activateEdgeWorkerVersion.mockResolvedValue({status: 201, body: {}, activationId: '1111'});
 	api.createEdgeHostNames.mockResolvedValue('ehn_1332');
 	api.listEdgeHostNames.mockResolvedValue([]);
 
@@ -319,7 +322,7 @@ describe('CLI Unit Tests', () => {
 
 		expect(err.message).not.toContain('-p, --property <path>');
 		expect(err.message).not.toContain('-d, --dry-run');
-		expect(err.message).not.toContain('-w, --ignore-warnings');
+		expect(err.message).not.toContain('-w, --stop-on-warning');
 		expect(err.message).not.toContain('-j, --print-papi-json');
 	});
 	test('Verify options for property activation are not available for init command', async () => {
@@ -627,6 +630,19 @@ describe('CLI Unit Tests', () => {
 			);
 		});
 	});
+	test('Verify --save-only option stops property activation', async () => {
+		const api = mockPapiApi();
+		const err = await expectTermination(
+			run({
+				isDryRun: false,
+				papiApi: () => api as unknown as PropertyManagerAPI,
+				argvs: ['activate', '--save-only'],
+			}),
+		);
+		expect(err.message).toContain('--save-only is set. Not activating property version');
+		expect(api.saveRulesIntoPropertyVersion).toHaveBeenCalled();
+		expect(api.activatePropertyVersion).not.toHaveBeenCalled();
+	});
 });
 
 describe('Data integrity tests for property.json', () => {
@@ -647,7 +663,7 @@ describe('Data integrity tests for property.json', () => {
 		const t: () => Promise<void> = async () => {
 			await run({
 				isDryRun: false,
-				loadFile: (_: unknown) => Promise.resolve('not json'),
+				loadFile: (_: unknown) => 'not json',
 			});
 		};
 
@@ -659,13 +675,11 @@ describe('Data integrity tests for property.json', () => {
 			await run({
 				isDryRun: false,
 				loadFile: (_: unknown) =>
-					Promise.resolve(
-						JSON.stringify({
-							contractId: 'c',
-							groupId: 'g',
-							// propertyId is missing
-						}),
-					),
+					JSON.stringify({
+						contractId: 'c',
+						groupId: 'g',
+						// propertyId is missing
+					}),
 			});
 		};
 
@@ -677,15 +691,13 @@ describe('Data integrity tests for property.json', () => {
 			await run({
 				isDryRun: false,
 				loadFile: (_: string) =>
-					Promise.resolve(
-						JSON.stringify({
-							propertyId: 'p',
-							contractId: 'c',
-							groupId: 'g',
-							accountSwitchKey: 124,
-							authorEmail: 'test@akamai.com',
-						}),
-					),
+					JSON.stringify({
+						propertyId: 'p',
+						contractId: 'c',
+						groupId: 'g',
+						accountSwitchKey: 124,
+						authorEmail: 'test@akamai.com',
+					}),
 			});
 		};
 		await expect(t).rejects.toThrow(
@@ -699,16 +711,15 @@ describe('Data integrity tests for property.json', () => {
 			await run({
 				isDryRun: false,
 				loadFile: (_: string) =>
-					Promise.resolve(
-						JSON.stringify({
-							propertyId: 'p',
-							contractId: 'c',
-							groupId: 'g',
-							accountSwitchKey: 'a',
-							edgeWorkerId: 92,
-							authorEmail: 'test@akamai.com',
-						} as PropertyCoordinates),
-					),
+					JSON.stringify({
+						propertyId: 'p',
+						contractId: 'c',
+						groupId: 'g',
+						accountSwitchKey: 'a',
+						edgeWorkerId: 92,
+						authorEmail: 'test@akamai.com',
+					} as PropertyCoordinates),
+
 				papiApi: () => papiMock as unknown as PropertyManagerAPI,
 			});
 		};
@@ -720,16 +731,15 @@ describe('Data integrity tests for property.json', () => {
 
 		await run({
 			loadFile: () =>
-				Promise.resolve(
-					JSON.stringify({
-						propertyId: 'p',
-						contractId: 'c',
-						groupId: 'g',
-						accountSwitchKey: 'accountSwitchKey in Json',
-						edgeWorkerId: 12,
-						authorEmail: 'test@akamai.com',
-					} as PropertyCoordinates),
-				),
+				JSON.stringify({
+					propertyId: 'p',
+					contractId: 'c',
+					groupId: 'g',
+					accountSwitchKey: 'accountSwitchKey in Json',
+					edgeWorkerId: 12,
+					authorEmail: 'test@akamai.com',
+				} as PropertyCoordinates),
+
 			papiApi: () => papiMock as unknown as PropertyManagerAPI,
 			isDryRun: false,
 		});
@@ -743,16 +753,14 @@ describe('Data integrity tests for property.json', () => {
 			await run({
 				isDryRun: false,
 				loadFile: (_: unknown) =>
-					Promise.resolve(
-						JSON.stringify({
-							contractId: 'c',
-							groupId: '5',
-							propertyId: 'pI',
-							accountSwitchKey: 'a',
-							edgeWorkerId: 6,
-							// authorEmail is missing
-						}),
-					),
+					JSON.stringify({
+						contractId: 'c',
+						groupId: '5',
+						propertyId: 'pI',
+						accountSwitchKey: 'a',
+						edgeWorkerId: 6,
+						// authorEmail is missing
+					}),
 			});
 		};
 
@@ -762,7 +770,7 @@ describe('Data integrity tests for property.json', () => {
 		const papiMock = mockPapiApi();
 
 		await run({
-			loadFile: () => Promise.resolve(JSON.stringify(TRIVIAL_PROPERTY_JS as PropertyCoordinates)),
+			loadFile: () => JSON.stringify(TRIVIAL_PROPERTY_JS as PropertyCoordinates),
 			papiApi: () => papiMock as unknown as PropertyManagerAPI,
 			isDryRun: false,
 		});
@@ -1001,7 +1009,7 @@ describe('Line-of-code mapping', () => {
 	});
 });
 
-describe('CLI Display of Errors/Warnings', () => {
+describe('CLI Display of Success/Errors/Warnings', () => {
 	test('terminate() must show a message', () => {
 		const primitives = new cli.PCDNCliPrimitives();
 
@@ -1042,9 +1050,10 @@ describe('CLI Display of Errors/Warnings', () => {
 
 	test('Display property and edgeworker activation success info when both succeed.', async () => {
 		const propertyVersion = 999;
-		const activationID = 2222;
+		const propertyActivationID = 2222;
 		const edgeworkerVersion = '2.5.6';
 		const edgeworkerID = 333;
+		const edgeWorkerActivationID = 444;
 		const papiMock = {
 			latestPropertyVersion: jest.fn(() => {
 				return {
@@ -1063,7 +1072,7 @@ describe('CLI Display of Errors/Warnings', () => {
 				return {
 					status: 201,
 					body: 'test',
-					activationLink: `/papi/v1/properties/${propertyVersion}/activations/${activationID}`,
+					activationId: propertyActivationID,
 				};
 			}),
 			validateEdgeWorkerBundle: jest.fn(() => {
@@ -1074,7 +1083,9 @@ describe('CLI Display of Errors/Warnings', () => {
 			createEdgeWorkerVersion: jest.fn(() => {
 				return {edgeWorkerId: edgeworkerID, version: edgeworkerVersion};
 			}),
-			activateEdgeWorkerVersion: jest.fn(() => {}),
+			activateEdgeWorkerVersion: jest.fn(() => {
+				return {status: 201, body: {}, activationId: edgeWorkerActivationID};
+			}),
 		};
 
 		const activationResults = await run({
@@ -1087,11 +1098,15 @@ describe('CLI Display of Errors/Warnings', () => {
 
 		// Inpect property activation log.
 		const propertyLog = stderr[0];
-		expect(propertyLog).toContain(`Activating version ${propertyVersion} of property pI`);
+		expect(propertyLog).toContain(
+			`Activating version ${propertyVersion} of property pI. Activation ID: ${propertyActivationID}`,
+		);
 
 		// Inspect edgeworker activation log.
 		const edgeworkerLog = stderr[1];
-		expect(edgeworkerLog).toContain(`Activating version ${edgeworkerVersion} of EdgeWorker ${edgeworkerID}.`);
+		expect(edgeworkerLog).toContain(
+			`Activating version ${edgeworkerVersion} of EdgeWorker ${edgeworkerID}. Activation ID: ${edgeWorkerActivationID}`,
+		);
 	});
 
 	test('Still display property activation success info when property activation succeeds but edgeworker activation failed', async () => {
@@ -1116,7 +1131,7 @@ describe('CLI Display of Errors/Warnings', () => {
 				return {
 					status: 201,
 					body: 'test',
-					activationLink: `/papi/v1/properties/${propertyVersion}/activations/${activationID}`,
+					activationId: activationID,
 				};
 			}),
 			validateEdgeWorkerBundle: jest.fn(() => {
@@ -1139,7 +1154,9 @@ describe('CLI Display of Errors/Warnings', () => {
 		);
 
 		const combinedStdErr = err.stderr.join('');
-		expect(combinedStdErr).toContain(`Activating version ${propertyVersion} of property pI`);
+		expect(combinedStdErr).toContain(
+			`Activating version ${propertyVersion} of property pI. Activation ID: ${activationID}`,
+		);
 		expect(combinedStdErr).toContain(edgeworkerErr);
 	});
 
@@ -1256,6 +1273,7 @@ describe('CLI Display of Errors/Warnings', () => {
 					prop.setAllowPut({enabled: true});
 					return prop;
 				},
+				argvs: ['activate', '-w'],
 			}),
 		);
 
@@ -1263,6 +1281,64 @@ describe('CLI Display of Errors/Warnings', () => {
 		expect(ex.message).toContain(
 			`Warnings prevent activation of the property. Either ignore errors with \`-w\` or fix them and rerun.`,
 		);
+	});
+	test('Warnings do not stop execution when -w option is not specified', async () => {
+		const papiMock = {
+			latestPropertyVersion: jest.fn(
+				(): Promise<VersionInfo> =>
+					Promise.resolve({
+						propertyVersion: 999,
+						productionStatus: 'INACTIVE',
+						stagingStatus: 'INACTIVE',
+					}),
+			),
+			saveRulesIntoPropertyVersion: jest.fn(
+				(): Promise<ValidationErrors> =>
+					Promise.resolve(
+						ValidationErrors.from_validation_results({
+							errors: [],
+							warnings: [
+								{
+									type: 'does not matter',
+									errorLocation: '#/loc',
+									detail: 'warn text 1',
+								},
+							],
+						}),
+					),
+			),
+			activatePropertyVersion: jest.fn(() => {
+				return {
+					status: 200,
+					body: 'hello',
+					activationLink: `/papi/v1/properties/999/activations/456`,
+				};
+			}),
+			validateEdgeWorkerBundle: jest.fn(() => {
+				return {
+					errors: [],
+				};
+			}),
+			createEdgeWorkerVersion: jest.fn(() => {
+				return {edgeWorkerId: 123, version: 23};
+			}),
+			activateEdgeWorkerVersion: jest.fn(() => {
+				return {status: 201, body: {}, activationId: 23};
+			}),
+		};
+		const t = await run({
+			isDryRun: false,
+			papiApi: () => papiMock as unknown as PropertyManagerAPI,
+			onConfig: (prop: Property): Property => {
+				prop.setAllowPut({enabled: true});
+				return prop;
+			},
+		});
+		// Verify warnings will be printed out
+		expect(testArrayContains(t.stderr, /.*WARNING #\/loc - warn text 1.*/)).toBeTruthy();
+		// Verify warnings will not stop execution
+		expect(papiMock.activateEdgeWorkerVersion).toHaveBeenCalled();
+		expect(papiMock.activatePropertyVersion).toHaveBeenCalled();
 	});
 });
 
@@ -1278,5 +1354,44 @@ describe('Ensure the local agreement file is present for activation', () => {
 		expect(err.message).toMatch(
 			/Activation is available after you agree to the terms and conditions shown by 'npx akj init'. If you have, but there is no .akj-agreed file in your home directory, then contact your Akamai rep./,
 		);
+	});
+});
+describe('Ensure local files are created during initialization', () => {
+	test('Verify local files are created in the expected locations', async () => {
+		const temp_dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pcdn-test-'));
+		const cliArguments: CliArguments = {
+			pathToConfigJs: `${temp_dir}/src/config.js`,
+			pathToEdgeWorkerRoot: `${temp_dir}/src/`,
+			pathToPropertyMeta: `${temp_dir}/property.json`,
+			isDryRun: false,
+			edgeRcPath: '/',
+			edgeGridSection: 'default',
+			ignoreWarnings: false,
+			network: 'STAGING',
+			init: true,
+			debugEdgeGrid: false,
+			printPapiJson: false,
+			stopPropertyActivation: true,
+		};
+		createLocalFiles(
+			cliArguments,
+			'propertyId',
+			'contract',
+			'group',
+			123,
+			'testEmail',
+			'cpCode',
+			'cpCodeId',
+			undefined,
+			false,
+		);
+		expect(fs.existsSync(`${temp_dir}/src/scf.json`)).toBeTruthy();
+		expect(fs.existsSync(`${temp_dir}/src/bundle.json`)).toBeTruthy();
+		expect(fs.existsSync(`${temp_dir}/src/config.js`)).toBeTruthy();
+		expect(fs.existsSync(`${temp_dir}/src/main.js`)).toBeTruthy();
+		expect(fs.existsSync(`${temp_dir}/property.json`)).toBeTruthy();
+
+		fs.rmSync(`${temp_dir}/src/`, {recursive: true, force: true});
+		fs.rmSync(`${temp_dir}/property.json`);
 	});
 });

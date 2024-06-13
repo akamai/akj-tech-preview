@@ -234,7 +234,15 @@ export interface EdgeWorkerValidationResult {
 export interface ActivatePropertyResponse {
 	status: number;
 	body: any;
-	activationLink: string;
+	// TODO: activationId only use type string.
+	// https://track.akamai.com/jira/browse/EW-22448
+	activationId: string | number;
+}
+
+export interface ActivateEdgeWorkerResponse {
+	status: number;
+	body: any;
+	activationId: number | string;
 }
 
 /**
@@ -310,7 +318,7 @@ export class PropertyManagerAPI {
 	 *
 	 * @param {PropertyCoordinates} propertyCoords Contains the accountSwitchKey, which we may need.
 	 * @param {Uint8Array} bundleByteArray The contents of the EdgeWorker version tarball.
-	 * @returns {{edgeWorkerId: number; version: string}} Eventually the validation errors from the rules.
+	 * @returns {EdgeWorkerValidationResult} Return the validation errors and warnings.
 	 */
 	async validateEdgeWorkerBundle(
 		propertyCoords: PropertyCoordinates,
@@ -334,10 +342,12 @@ export class PropertyManagerAPI {
 			qs,
 			body: bundleByteArray,
 		});
-		const {status, body} = await this.sendInPromise(this.eg, `EdgeWorker bundle validation failed`);
+		const {status} = await this.sendInPromise(this.eg, `EdgeWorker bundle validation failed`);
 
 		if (status === 200) {
-			return body;
+			return {
+				errors: [],
+			};
 		}
 
 		return {
@@ -407,7 +417,7 @@ export class PropertyManagerAPI {
 		edgeWorkerId: number,
 		version: string,
 		network: 'PRODUCTION' | 'STAGING',
-	): Promise<void> {
+	): Promise<ActivateEdgeWorkerResponse> {
 		const qs: {[key: string]: string} = {};
 
 		if (this.accountSwitchKey) {
@@ -431,16 +441,23 @@ export class PropertyManagerAPI {
 			},
 		});
 
-		const {status} = await this.sendInPromise(
+		const response = await this.sendInPromise(
 			this.eg,
 			`Failed to activate version ${version} for EdgeWorker ${edgeWorkerId}`,
 		);
 
-		if (status === 201) {
-			return;
+		if (!('activationId' in response.body)) {
+			throw new Error('Missing `activationId` in edgeworker activation response body.');
 		}
 
-		throw new Error(`unhandled status ${status}`);
+		if (response.status === 201) {
+			return {
+				...response,
+				activationId: response.body.activationId,
+			};
+		} else {
+			throw new Error(`Unhandled edgeworker activation return status ${response.status}`);
+		}
 	}
 
 	/**
@@ -635,23 +652,21 @@ export class PropertyManagerAPI {
 		});
 
 		// Extract the activation link from the `data` of a successful response.
-		try {
-			const response = await this.sendInPromise(
-				this.eg,
-				`Failed to activate version ${versionToWrite} of property ${propertyCoords.propertyId}`,
-			);
+		const response = await this.sendInPromise(
+			this.eg,
+			`Failed to activate version ${versionToWrite} of property ${propertyCoords.propertyId}`,
+		);
 
-			if (typeof response.body?.activationLink !== 'string') {
-				return Promise.reject(response);
-			}
-
-			return {
-				...response,
-				activationLink: response.body.activationLink,
-			};
-		} catch (err) {
-			return Promise.reject(err);
+		if (!('activationLink' in response.body)) {
+			throw new Error('Missing `activationLink` from the property activation response.');
 		}
+
+		const activationId = getActivationID(response.body.activationLink);
+
+		return {
+			...response,
+			activationId,
+		};
 	}
 
 	/**
@@ -1194,4 +1209,22 @@ export class PropertyManagerAPI {
 			accountId: body.accountId,
 		};
 	}
+}
+
+/**
+ * Extract the property activationID from the activationLink.
+ *
+ * @param {string} activationLink The activationLink when launching a new activation.
+ * @returns {string | number} Activation ID.
+ * @see {@link https://techdocs.akamai.com/property-mgr/reference/get-property-activation}
+ */
+function getActivationID(activationLink: string): string | number {
+	// activationLink format: /papi/v1/properties/{propertyId}/activations/{activationId}...
+	const regex = /\/papi\/v1\/properties\/\w+\/activations\/(\w+)/;
+	const match = activationLink.match(regex);
+	if (match && match.length > 1) {
+		return match[1];
+	}
+
+	throw new Error('Did not find `activationID` in `activationLink`.');
 }

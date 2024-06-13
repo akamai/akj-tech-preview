@@ -23,6 +23,7 @@
 import {Command} from '@commander-js/extra-typings';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import * as os from 'os';
 import * as deref from 'json-pointer';
 import * as convert from '../papi/convert';
@@ -132,8 +133,8 @@ export class PCDNCliPrimitives implements CliPrimitives {
 		this.importer = function (path: string): Promise<{onConfig: convert.OnConfigFn}> {
 			return import(path);
 		};
-		this.loadFile = function (path: string): Promise<{toString: () => string}> {
-			return fs.readFile(path);
+		this.loadFile = function (path: string): string {
+			return fsSync.readFileSync(path, 'utf-8');
 		};
 		this.papiApi = (edgeRcPath, edgeGridSection, accountSwitchKey, debugEdgeGrid) => {
 			return new papi.PropertyManagerAPI(
@@ -198,7 +199,7 @@ export class PCDNCliPrimitives implements CliPrimitives {
 
 	importer: (path: string) => Promise<{onConfig: convert.OnConfigFn}>;
 	terminate: Terminator;
-	loadFile: (path: string) => Promise<{toString: () => string}>;
+	loadFile: (path: string) => string;
 	papiApi: (
 		edgeRcPath: string,
 		edgeGridSection: string,
@@ -248,8 +249,8 @@ export interface CliPrimitives {
 	/** Print an error message and stop execution. */
 	terminate: Terminator;
 
-	/** Load the named file asynchronously and return the contents as a string. */
-	loadFile: (path: string) => Promise<{toString: () => string}>;
+	/** Synchronously load the file. */
+	loadFile: (path: string) => string;
 
 	/** Create an instance of the PAPI API. */
 	papiApi: (
@@ -332,6 +333,9 @@ export interface CliArguments {
 
 	/** When true, print the PAPI json to the console. */
 	printPapiJson: boolean;
+
+	/** When true, property will be updated but will not be activated. */
+	stopPropertyActivation: boolean;
 }
 
 /**
@@ -349,6 +353,7 @@ export function parseArgs(argv: string[], terminate: Terminator): CliArguments {
 	let isDryRun: boolean = false;
 	let ignoreWarnings: boolean = false;
 	let network: 'PRODUCTION' | 'STAGING' = 'STAGING';
+	let stopPropertyActivation: boolean = false;
 
 	const p = new Command()
 		.name('akj')
@@ -366,18 +371,19 @@ export function parseArgs(argv: string[], terminate: Terminator): CliArguments {
 		.argument('[base]', 'Root of your PCDN property.')
 		.option('-p, --property <path>', 'Optional path to the JSON file that contains property information')
 		.option('-d, --dry-run', 'Stop execution after producing PAPI JSON.', false)
-		.option('-w, --ignore-warnings', 'Activate the property, even if there are warnings.', false)
-		.option('-j, --print-papi-json', 'Print the PAPI Json to the console during property operations.', false);
+		.option('-w, --stop-on-warning', 'Stop activating the property if there are warnings.', false)
+		.option('-j, --print-papi-json', 'Print the PAPI Json to the console during property operations.', false)
+		.option('-o, --save-only', 'Save the property version without activation.', false);
 
 	activateCommand.action((base: string | undefined, options) => {
 		printPapiJson = options.printPapiJson;
 		optsProperty = options.property;
 		isDryRun = options.dryRun;
-		ignoreWarnings = options.ignoreWarnings;
+		ignoreWarnings = !options.stopOnWarning;
 		pathToPackage = base;
 		network = 'STAGING';
+		stopPropertyActivation = options.saveOnly;
 	});
-
 	p.command('init [base]')
 		.description('Configure a Property to use.  Either by creating a new property or finding an existing one.')
 		.action((base: string | undefined) => {
@@ -407,6 +413,7 @@ export function parseArgs(argv: string[], terminate: Terminator): CliArguments {
 		init: createProperty,
 		debugEdgeGrid: opts?.debug || false,
 		printPapiJson: printPapiJson,
+		stopPropertyActivation: stopPropertyActivation,
 	};
 }
 
@@ -431,7 +438,7 @@ async function runConversion(args: CliArguments, primitives: CliPrimitives): Pro
 		primitives.terminate(`${args.pathToConfigJs} must export a function named \`onConfig\``);
 	}
 
-	const papiJson = executeCallbackAndBuildTree(onConfig);
+	const papiJson = executeCallbackAndBuildTree(primitives, onConfig);
 
 	if (args.printPapiJson) {
 		primitives.stdout.write(JSON.stringify(papiJson, undefined, 2) + '\n');
@@ -445,16 +452,24 @@ async function runConversion(args: CliArguments, primitives: CliPrimitives): Pro
 /**
  * Run the callback and build the PAPI json.
  *
+ * @param {CliPrimitives} primitives Utility functions to simplify testing.
  * @param {convert.OnConfigFn} onConfig The customer built onConfig function
  * @returns {object} The papi json in the `rules` key of the property
  */
-function executeCallbackAndBuildTree(onConfig: convert.OnConfigFn): object {
-	const cfg = convert.run(onConfig);
-	const tree = cfg.toPapiJson();
-
-	return {
-		rules: tree,
-	};
+function executeCallbackAndBuildTree(primitives: CliPrimitives, onConfig: convert.OnConfigFn): object {
+	try {
+		const cfg = convert.run(primitives.loadFile, onConfig);
+		const tree = cfg.toPapiJson();
+		return {
+			rules: tree,
+		};
+	} catch (err) {
+		if (err instanceof convert.BadJsonError) {
+			primitives.terminate(err.toString());
+		} else {
+			throw err;
+		}
+	}
 }
 
 /**
@@ -499,34 +514,34 @@ async function runPropertyManagerAndEdgeWorkersUpdate(args: CliArguments, primit
 	);
 
 	// Activate new version of property
-	const propertyActivationResponse = await uploadAndActivateProperty(
+	const {
+		propertyId,
+		version: propertyVersion,
+		activationID: propertyActivationID,
+	} = await uploadAndActivateProperty(
 		primitives,
 		papiApi,
 		propertyCoords,
 		papiJson,
 		args.ignoreWarnings,
 		args.network,
+		args.stopPropertyActivation,
 	);
 
-	// log the successful property activation info
-	const {propertyId, version: propertyVersion} = propertyActivationResponse;
-
 	primitives.stderr.write(
-		`Activating version ${logicalColors.bold(logicalColors.success(propertyVersion))} of ${logicalColors.bold('property ' + logicalColors.success(propertyId))}.\n`,
+		`Activating version ${logicalColors.bold(logicalColors.success(propertyVersion))} of ${logicalColors.bold('property ' + logicalColors.success(propertyId))}. Activation ID: ${propertyActivationID}\n`,
 	);
 
 	// activate new version of edgeworker
-	const {edgeWorkerId, version: edgeWorkerVersion} = await uploadAndActivateNewBundle(
-		primitives,
-		papiApi,
-		propertyCoords,
-		args.pathToEdgeWorkerRoot,
-		args.network,
-	);
+	const {
+		edgeWorkerId,
+		version: edgeWorkerVersion,
+		activationId: edgeWorkerActivationId,
+	} = await uploadAndActivateNewBundle(primitives, papiApi, propertyCoords, args.pathToEdgeWorkerRoot, args.network);
 
 	// log the successful edgeworker activation info
 	primitives.stderr.write(
-		`Activating version ${logicalColors.bold(logicalColors.success(edgeWorkerVersion))} of ${logicalColors.bold('EdgeWorker ' + logicalColors.success(edgeWorkerId))}.\n`,
+		`Activating version ${logicalColors.bold(logicalColors.success(edgeWorkerVersion))} of ${logicalColors.bold('EdgeWorker ' + logicalColors.success(edgeWorkerId))}. Activation ID: ${edgeWorkerActivationId}\n`,
 	);
 }
 
@@ -708,11 +723,11 @@ async function promptTermsAndConditions(
  * @param {number} edgeWorkerId The edgeworker id
  * @param {string} authorEmail Email address that should receive notifications when Akamai deploys/activates stuff.
  * @param {string | undefined} cpcodeName The name of the CP Code
- * @param {string | undefined} cpcodeID The id for the cp code
+ * @param {string | undefined} cpcodeIDStr The id for the cp code
  * @param {string[] | undefined} productsID The list of product ids
  * @param {boolean} autoSemVer True to automatically version the bundle.json file
  */
-function createLocalFiles(
+export function createLocalFiles(
 	args: CliArguments,
 	propertyId: string,
 	contract: string,
@@ -720,7 +735,7 @@ function createLocalFiles(
 	edgeWorkerId: number,
 	authorEmail: string,
 	cpcodeName: string | undefined,
-	cpcodeID: string,
+	cpcodeIDStr: string,
 	productsID: string[] | undefined,
 	autoSemVer: boolean,
 ) {
@@ -739,9 +754,10 @@ function createLocalFiles(
 	if (!existsSync(pathToBaseDir)) {
 		mkdirSync(pathToBaseDir, {recursive: true});
 	}
+	const cpcodeID = cpcodeIDStr.replaceAll('cpc_', '');
 	const configJs: object = {
 		edgeWorkerId: edgeWorkerId,
-		cpcodeID: cpcodeID.replaceAll('cpc_', ''),
+		cpcodeID,
 		cpcodeName: cpcodeName,
 		productsID: productsID,
 	};
@@ -751,8 +767,17 @@ function createLocalFiles(
 	writeFileSync(args.pathToPropertyMeta, JSON.stringify(propertyToWrite, undefined, 4));
 	const pathToEdgeWorkerBundle = path.join(pathToBaseDir, 'bundle.json');
 	const pathToEdgeWorkerJs = path.join(pathToBaseDir, 'main.js');
+	const pathToScf = path.join(pathToBaseDir, 'scf.json');
+	const pathToSchema = path.resolve(__dirname, `../../schema/${types.RULE_FORMAT}-scf.json`);
 	writeFileSync(pathToEdgeWorkerBundle, nunjucks.render('ew-bundle.njk'));
 	writeFileSync(pathToEdgeWorkerJs, nunjucks.render('ew-js.njk'));
+	writeFileSync(
+		pathToScf,
+		nunjucks.render('scf.njk', {
+			scfJsonSchema: pathToSchema,
+			cpcodeID,
+		}),
+	);
 }
 
 /**
@@ -1159,7 +1184,7 @@ export async function loadPropertyInfo(
 	let file;
 	primitives.statusUpdator.increment(0, 'Loading Property Info');
 	try {
-		file = await primitives.loadFile(pathToPropertyMeta);
+		file = primitives.loadFile(pathToPropertyMeta);
 	} catch (err) {
 		primitives.terminate(`Failed to read '${pathToPropertyMeta}': ${err}`);
 	}
@@ -1229,6 +1254,7 @@ export function resolveLineOfCode(papiJson: object, pointerToProblem: string): s
  * @param {object} primitives Needed so we can call terminate on a failure.
  * @param {HttpRequestFn} primitives.httpRequest Function used to submit data to the Store.
  * @param {Terminator} primitives.terminate Called in case of error
+ * @param {() => Promise<void>} primitives.storeLocalAgreementInHome Function used to store the T&C agreement
  * @param {papi.PropertyManagerAPI} papiApi How we talk to the PM endpoints.
  * @param {string} contract The contractId the user is running in.
  */

@@ -1,10 +1,10 @@
 {
   "name": "akj-tech-preview",
-  "version": "1.3.5",
+  "version": "1.5.6",
   "description": "Tools and Code for the Programmable CDN Tech preview",
   "repository": {
     "type": "git",
-    "url": "https://github.com/akamai/akj-tech-preview/"
+    "url": "git+https://github.com/akamai/akj-tech-preview.git"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
@@ -14,6 +14,7 @@
     "@types/jest": "^29.5.11",
     "@types/json-pointer": "^1.0.34",
     "@types/nunjucks": "^3.2.6",
+    "@types/std-mocks": "^1.0.4",
     "@types/stream-buffers": "^3.0.7",
     "@types/tar": "^6.1.11",
     "@types/through2": "^2.0.41",
@@ -35,14 +36,17 @@
     "through2": "^4.0.2",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.4.5"
   },
   "dependencies": {
     "@commander-js/extra-typings": "^11.1.0",
+    "@nodecg/json-schema-defaults": "^1.0.4",
     "@types/node": "^20.11.0",
     "@types/semver": "^7.5.8",
     "address": "^2.0.2",
+    "ajv-draft-04": "^1.0.0",
     "akamai-edgegrid": "^3.4.4",
+    "better-ajv-errors": "^1.2.0",
     "chalk": "^4.1.2",
     "class-validator": "^0.14.1",
     "cli-progress": "^3.12.0",
@@ -55,26 +59,51 @@
     "json-pointer": "^0.6.2",
     "nunjucks": "^3.2.4",
     "semver": "^7.6.0",
-    "tar": "^6.2.0",
+    "std-mocks": "^2.0.0",
+    "tar": "^6.2.1",
     "untildify": "^5.0.0"
   },
   "scripts": {
-    "clean": "rimraf ./out/ ./types/ ./package-lock.json ./node_modules/",
+    "clean": "rimraf ./out/ ./package-lock.json ./node_modules/",
     "test": "NODE_OPTIONS=--experimental-vm-modules npx jest --unhandled-rejections=strict",
     "format": "prettier --config .prettierrc '{src,examples,tests}/**/*.{js,ts,json}' --write",
     "lint": "eslint . --ext .ts --resolve-plugins-relative-to ./",
     "lint-fix": "eslint . --ext .ts --fix --resolve-plugins-relative-to ./",
-    "build": "npx tsc && copyfiles -u 1 src/templates/*.njk out/src/ && cp package.json out/package.json",
+    "build": "npx tsc && copyfiles -u 1 src/templates/*.njk out/src/ && cp package.json out/package.json && copyfiles -u 1 schema/v*.json out/schema/",
     "generate-api": "ts-node src/api/api-generator.ts",
     "save-api": "ts-node src/api/api-generator.ts --format --outputFile ./src/types.ts",
     "akj": "ts-node src/akj.ts",
-    "prepare": "npx tsc && copyfiles -u 1 src/templates/*.njk out/src/ && cp package.json out/package.json"
+    "prepare": "npx tsc && copyfiles -u 1 src/templates/*.njk out/src/ && cp package.json out/package.json && copyfiles -u 1 schema/v*.json out/schema/",
+    "prod-build": "npm install rimraf && npm run clean && npm install && npx tsc -p tsconfig.prod.json && copyfiles -u 1 src/templates/*.njk out/src/ && cp package.json out/package.json && copyfiles -u 1 schema/v*.json out/schema/"
   },
-  "main": "./out/src/lib.js",
-  "types": "./types/src/lib.d.ts",
+  "main": "out/src/lib.js",
+  "types": "out/src/lib.d.ts",
   "bin": {
-    "akj": "./out/src/akj.js"
+    "akj": "out/src/akj.js"
   },
+  "files": [
+    "/out/package.json",
+    "/out/src/*.js",
+    "/out/src/*.d.ts",
+    "/out/src/akj/*.js",
+    "/out/src/akj/*.d.ts",
+    "/out/src/utils/*.js",
+    "/out/src/utils/*.d.ts",
+    "/out/src/papi/*.js",
+    "/out/src/papi/*.d.ts",
+    "/out/src/api/edgeworkers.js",
+    "/out/src/api/edgeworkers.d.ts",
+    "/out/src/api/papi.js",
+    "/out/src/api/papi.d.ts",
+    "/out/src/api/property-manager.js",
+    "/out/src/api/property-manager.d.ts",
+    "/out/src/templates/config.njk",
+    "/out/src/templates/scf.njk",
+    "/out/src/templates/edgeauth.njk",
+    "/out/src/templates/ew-bundle.njk",
+    "/out/src/templates/ew-js.njk",
+    "/out/schema/v*.json"
+  ],
   "type": "commonjs",
   "license": "SEE LICENSE IN LICENSE.md"
 }

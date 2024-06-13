@@ -1,0 +1,26 @@
+{
+	"name": "pcdn-typescript-example",
+	"version": "1.0.0",
+	"description": "An example of building a tech preview configuration with typescript",
+	"scripts": {
+		"clean": "rimraf ./dist/ ./node_modules/ ./package-lock.json",
+		"setup": "npm install rimraf && npm run clean && npm install",
+		"build": "npx tsc --project tsconfig.json && npx tsc --project tsconfig.ew.json && cp -r ./src/*.json dist/src/ && cp -r ./property.json dist/"
+	},
+	"author": "cdaley@akamai.com",
+	"dependencies": {
+		"akj-tech-preview": "^1"
+	},
+	"type": "commonjs",
+	"devDependencies": {
+		"@eslint/js": "^9.1.1",
+		"@types/akamai-edgeworkers": "^1.1.16",
+		"@typescript-eslint/eslint-plugin": "^7.10.0",
+		"@typescript-eslint/parser": "^7.10.0",
+		"eslint": "^8.57.0",
+		"eslint-plugin-promise": "^6.2.0",
+		"rimraf": "^5.0.5",
+		"typescript": "^5.4.5",
+		"typescript-eslint": "^7.10.0"
+	}
+}

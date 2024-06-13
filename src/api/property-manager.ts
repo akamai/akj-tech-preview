@@ -22,8 +22,9 @@ import {emitValidationErrors} from '../utils/errors';
  * @param {object} papiJson The Papi JSON
  * @param {boolean} ignoreWarnings True to ignore warnings during activation. I too like to live dangerously.
  * @param {'PRODUCTION' | 'STAGING'} network Network that we should activate onto.
- * @returns {Promise<{propertyId: string; version: number; activationLink: string}>} Information about the activated
- *   property version.
+ * @param {boolean} stopPropertyActivation True to stop property activation.
+ * @returns {Promise<{propertyId: string; version: number; activationID: string | number}>} Information about the
+ *   activated property version.
  */
 export async function uploadAndActivateProperty(
 	primitives: CliPrimitives,
@@ -32,7 +33,8 @@ export async function uploadAndActivateProperty(
 	papiJson: object,
 	ignoreWarnings: boolean,
 	network: 'PRODUCTION' | 'STAGING',
-): Promise<{propertyId: string; version: number; activationLink: string}> {
+	stopPropertyActivation: boolean,
+): Promise<{propertyId: string; version: number; activationID: string | number}> {
 	try {
 		primitives.statusUpdator.increment(0, 'Creating property version.');
 
@@ -67,14 +69,17 @@ export async function uploadAndActivateProperty(
 				'Warnings prevent activation of the property. Either ignore errors with `-w` or fix them and rerun.',
 			);
 		}
+		if (stopPropertyActivation) {
+			primitives.terminate(`--save-only is set. Not activating property version ${versionToEdit}.`);
+		}
 
 		primitives.statusUpdator.increment(1, 'Activating property version.');
 
 		// Activate the given version
-		const {activationLink} = await api.activatePropertyVersion(propertyMeta, versionToEdit, network);
+		const {activationId} = await api.activatePropertyVersion(propertyMeta, versionToEdit, network);
 
 		primitives.statusUpdator.increment(1, 'Property Activation started.');
-		return {propertyId: propertyMeta.propertyId, version: versionToEdit, activationLink};
+		return {propertyId: propertyMeta.propertyId, version: versionToEdit, activationID: activationId};
 	} catch (err) {
 		if (err instanceof ConnectOrLoginError) {
 			const pmErr = err as ConnectOrLoginError;

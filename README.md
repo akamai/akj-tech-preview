@@ -156,7 +156,7 @@ export function onConfig(config) {
 
   // Setup a rule matching either a Querystring or cookie is present
   config
-    .group('Conditional EdgeWorker', 'Conditionally apply the Specified EdgeWorker.')
+    .newBlankRule('Conditional EdgeWorker', 'Conditionally apply the Specified EdgeWorker.')
     .any(rule => {
       rule.onQueryStringParameter({
         parameterName: 'ew-enabled',
@@ -192,8 +192,9 @@ Arguments:
 Options:
   -p, --property <path>  Optional path to the JSON file that contains property information
   -d, --dry-run          Stop execution after producing PAPI JSON. (default: false)
-  -w, --ignore-warnings  Activate the property, even if there are warnings. (default: false)
+  -w, --stop-on-warning  Stop activating the property if there are warnings. (default: false)
   -j, --print-papi-json  Print the PAPI Json to the console during property operations. (default: false)
+  -o, --save-only        Save the property version without activation. (default: false)
   -h, --help             display help for command
 ```
 

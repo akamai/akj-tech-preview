@@ -9,5 +9,5 @@
  */
 
 // Export the types to be used as a library
-export {CriteriaBuilder, Property, RULE_FORMAT} from './types';
-export {RuleBuilder} from './papi/convert';
+export {CriteriaBuilder, Property, RULE_FORMAT, ConfigureProperty} from './types';
+export {RuleBuilder, MatchRuleBuilder} from './papi/convert';
