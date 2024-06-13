@@ -12,9 +12,33 @@
 /** The version of the {@link https://techdocs.akamai.com/property-mgr/reference/rule-format-schemas | Rule Format} used for this build of the API. */
 export const RULE_FORMAT: string = "{{ruleFormat}}";
 
+/**
+ * Configure a Property with the PCDN builder pattern.
+ * 
+ * @callback ConfigureProperty
+ * @param {Property} config The Property that will be configured.
+ * @returns {void} The function will not return a value. The `config` parameter is modified directly.
+ */
+export type ConfigureProperty = (config: Property) => void;
+
+/**
+ * A builder for creating matchers.  This class contains the the `on` functions that allow constraining logic based on conditional logic.
+ * Each `on` function corresponds to a specific match that can be done within a Property.
+ * 
+ * @see https://techdocs.akamai.com/property-mgr/docs/matches
+ */
 export class CriteriaBuilder {
     delegate: any;
 
+	/**
+	 * Create a new CriteriaBuilder. 
+	 * 
+	 * When writing tests requiring a CriteriaBuilder, the provided delegate should be a `MatchRuleBuilder`.
+	 * ```
+	 * let config = new CriteriaBuilder(new MatchRuleBuilder());
+	 * ```
+	 * @param {any} delegate the delegate
+	 */
     constructor(delegate: any) {
         this.delegate = delegate;
     }
@@ -28,9 +52,24 @@ export class CriteriaBuilder {
     {% endfor %}
 }
 
+/**
+ * A builder for creating a Property.
+ * 
+ * @see https://techdocs.akamai.com/property-mgr/docs/key-concepts-terms#properties
+ */
 export class Property {
     delegate: any;
 
+	/**
+	 * Create a new `Property`.  
+	 * 
+	 * When creating a new Property in tests, the best delegate to start with is a RuleBuilder.
+	 * 
+	 * ```
+	 * let config = new Property(new RuleBuilder());
+	 * ```
+	 * @param {any} delegate 
+	 */
     constructor(delegate: any) {
         this.delegate = delegate;
     }
@@ -60,14 +99,27 @@ export class Property {
     }
 
     /**
-     * Create a grouping for keeping similar behaviours together.  This is equivalent to a blank rule template.
+	 * Create a grouping for keeping similar behaviours together. This is equivalent to a blank rule template. This method is equivalent to `newBlankRule()` method. 
      * 
      * @param {string} groupName The name for the grouping
      * @param {string} [comment] A comment to describe what the grouping is for
      * @returns {Property} The property 
+     * @see {@link Property#newBlankRule | newBlankRule} for `newBlankRule()` method.
      */
     group(groupName: string, comment?: string): Property {
         return new Property(this.delegate.group(groupName, comment));
+    }
+
+	/**
+	 * Create a new blank rule for keeping similar behaviours together. This method is equivalent of `group()` method. 
+	 * 
+	 * @param {string} ruleName The name for the rule
+	 * @param {string} [comment] A comment to describe what the grouping is for
+	 * @returns {Property} The property
+	 * @see {@link Property#group | group} for `group()` method.
+	 */
+    newBlankRule(ruleName: string, comment?: string): Property {
+        return new Property(this.delegate.group(ruleName, comment));
     }
 
 	/**
@@ -89,6 +141,13 @@ export class Property {
 	 */
 	comment(comment: string): Property {
 		return new Property(this.delegate.comment(comment));
+	}
+
+	/**
+	 * Inserts a Static Configuration File as a child of this node. 
+	 */
+	importChildRule(pathToStaticConfig: string): Property {
+		return this.delegate.importChildRule(pathToStaticConfig);
 	}
     
     {% for function in propertyCriteria %}

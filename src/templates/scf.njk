@@ -1,0 +1,36 @@
+{
+   "$schema":"{{scfJsonSchema}}",
+    "name": "Images from config file",
+    "children": [],
+    "criteria": [
+        {
+            "name": "fileExtension",
+            "options": {
+                "values": [
+                    "jpg",
+                    "jpeg",
+                    "png",
+                    "gif",
+                    "webp",
+                    "jp2",
+                    "ico",
+                    "svg",
+                    "svgz"
+                ],
+                "matchOperator": "IS_ONE_OF",
+                "matchCaseSensitive": false
+            }
+        }
+    ],
+    "behaviors": [
+        {
+            "name": "caching",
+            "options": {
+                "ttl": "30d",
+                "behavior": "MAX_AGE",
+                "mustRevalidate": false
+            }
+        }
+    ],
+    "criteriaMustSatisfy": "all"
+}

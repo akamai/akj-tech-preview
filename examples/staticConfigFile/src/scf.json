@@ -1,0 +1,28 @@
+{
+    "name": "Images (from static config)",
+    "children": [],
+    "behaviors": [
+        {
+            "name": "caching",
+            "options": {
+                "ttl": "111d",
+                "behavior": "MAX_AGE",
+                "mustRevalidate": false
+            }
+        }
+    ],
+    "criteria": [
+        {
+            "name": "fileExtension",
+            "options": {
+                "values": [
+                    "tiff"
+                ],
+                "matchOperator": "IS_ONE_OF",
+                "matchCaseSensitive": false
+            }
+        }
+    ],
+    "criteriaMustSatisfy": "all",
+    "comments": "From the staticConfigFile example"
+}

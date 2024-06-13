@@ -21,7 +21,8 @@ import {PropertyCoordinates, PropertyManagerAPI} from './papi';
  * @param {string} pathToEdgeWorker A path to the directory containing the EdgeWorker. Must contain a main.js and
  *   bundle.json.
  * @param {'PRODUCTION' | 'STAGING'} network Target network for the activation.
- * @returns {{edgeWorkerId: number; version: string}} Everything necessary to activate the uploaded version.
+ * @returns {Promise<{edgeWorkerId: number; version: string; activationId: string | number}>} Information about the
+ *   activated edgeWorker version.
  */
 export async function uploadAndActivateNewBundle(
 	primitives: CliPrimitives,
@@ -29,7 +30,7 @@ export async function uploadAndActivateNewBundle(
 	propertyMeta: PropertyCoordinates,
 	pathToEdgeWorker: string,
 	network: 'PRODUCTION' | 'STAGING',
-): Promise<{edgeWorkerId: number; version: string}> {
+): Promise<{edgeWorkerId: number; version: string; activationId: string | number}> {
 	primitives.statusUpdator.increment(0, 'Building EdgeWorkers Tarball.');
 
 	const bundleByteArray = await primitives.buildTarballInMemory(
@@ -53,12 +54,13 @@ export async function uploadAndActivateNewBundle(
 	);
 	primitives.statusUpdator.increment(1, 'Starting EdgeWorker activation.');
 
-	await api.activateEdgeWorkerVersion(propertyMeta, edgeWorkerId, version, network);
+	const {activationId} = await api.activateEdgeWorkerVersion(propertyMeta, edgeWorkerId, version, network);
 
 	primitives.statusUpdator.increment(1, 'EdgeWorker activation started.');
 
 	return {
-		edgeWorkerId: edgeWorkerId,
-		version: version,
+		edgeWorkerId,
+		version,
+		activationId,
 	};
 }

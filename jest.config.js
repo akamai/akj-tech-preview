@@ -11,7 +11,8 @@ module.exports = {
   coverageDirectory: 'test_results/coverage/jest',
   coverageReporters: ['cobertura', 'text'],
   coveragePathIgnorePatterns: [
-    "<rootDir>/src/types.ts"
+    "<rootDir>/src/types.ts",
+    "<rootDir>/src/api/papi.ts"
   ],
   reporters: [
     'default',

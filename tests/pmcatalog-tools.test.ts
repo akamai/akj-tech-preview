@@ -740,6 +740,18 @@ describe('Type declarations', () => {
 			undefined,
 		]);
 	});
+
+	test('Verify cpcode type', () => {
+		const opt: CriteriaOrBehaviourOption = {values: [], name: 'ignored', type: 'cpcode' as OptionType};
+
+		expect(
+			Catalog.makeTypeDeclaration('n', opt, {$ref: '#/definitions/catalog/option_types/cpcode'}),
+		).toStrictEqual([
+			undefined,
+			'{id: number, name?: string, description?: string, createdDate?: number, cpCodeLimits?: Array<string>, products?: Array<string>}',
+			undefined,
+		]);
+	});
 });
 
 describe('Test loading the Packaged pm_catalog.json file', () => {

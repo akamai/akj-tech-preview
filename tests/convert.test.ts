@@ -8,12 +8,17 @@
  * https://github.com/akamai/akj-tech-preview/blob/main/LICENSE.md
  */
 
+import * as path from 'node:path';
 import {CriteriaBuilder, Property} from '../src/types';
-import {RuleBuilder, run} from '../src/papi/convert';
+import {RuleBuilder, resolveImportPath, run, SynchronousLoadFile, BadJsonError} from '../src/papi/convert';
+
+const NO_LOAD: SynchronousLoadFile = (_: string) => {
+	throw new Error('not expecting to load');
+};
 
 describe('Execution workflow', () => {
 	test('Trivial insertion of commands should accumulate criteria/behaviors in the PAPI rule', () => {
-		const builder = new RuleBuilder(undefined);
+		const builder = new RuleBuilder(NO_LOAD, undefined);
 		const fn = function (cfg: RuleBuilder): RuleBuilder {
 			cfg.addFromProperty('CRITERIA', 'c', {}, {c: true}).addFromProperty('BEHAVIOR', 'b', {}, {b: true});
 
@@ -58,7 +63,7 @@ describe('Execution workflow', () => {
 	});
 
 	test('PM variable detection and inclusion in the root rule', () => {
-		const builder = new RuleBuilder(undefined);
+		const builder = new RuleBuilder(NO_LOAD, undefined);
 
 		const fn = function (cfg: RuleBuilder): RuleBuilder {
 			cfg.addFromProperty(
@@ -104,7 +109,7 @@ describe('Execution workflow', () => {
 	});
 
 	test('PM variable raises an error on invalid `variableList`', () => {
-		const builder = new RuleBuilder(undefined);
+		const builder = new RuleBuilder(NO_LOAD, undefined);
 
 		const fn = function (cfg: RuleBuilder): RuleBuilder {
 			cfg.addFromProperty('CRITERIA', 'd', {variableList: ['vList']}, {vList: 'totally invalid value'});
@@ -115,7 +120,7 @@ describe('Execution workflow', () => {
 	});
 
 	test("PM variable detection doesn't overwrite previously seen vars", () => {
-		const builder = new RuleBuilder(undefined);
+		const builder = new RuleBuilder(NO_LOAD, undefined);
 
 		// We cheat - run the builder once to register the variable `myVar`...
 		const fn = function (cfg: RuleBuilder): RuleBuilder {
@@ -154,7 +159,7 @@ describe('Execution workflow', () => {
 	});
 
 	test('.any() inserts multiple criteria and sets .criteriaMustSatisfy="any"', () => {
-		const builder = new RuleBuilder(undefined);
+		const builder = new RuleBuilder(NO_LOAD, undefined);
 
 		const fn = function (cfg: RuleBuilder) {
 			cfg.doAny((cb: CriteriaBuilder) => {
@@ -184,8 +189,39 @@ describe('Execution workflow', () => {
 		});
 	});
 
+	test('.newBlankRule() works', () => {
+		const builder = new RuleBuilder(NO_LOAD, undefined);
+
+		const NEW_RULE_NAME = 'rule1';
+		const NEW_RULE_COMMENT = 'This is a comment';
+
+		const fn = function (cfg: RuleBuilder) {
+			cfg.newBlankRule(NEW_RULE_NAME, NEW_RULE_COMMENT);
+
+			return cfg;
+		};
+
+		fn(builder);
+
+		interface JsonType {
+			children: [{name: string; comments: string}];
+		}
+
+		const json = builder.toPapiJson() as JsonType;
+
+		expect(json).toMatchObject({
+			children: expect.arrayContaining([
+				expect.objectContaining({
+					name: NEW_RULE_NAME,
+					comments: expect.any(String),
+				}),
+			]),
+		});
+		expect(json.children[0].comments).toContain(NEW_RULE_COMMENT);
+	});
+
 	test('.any() updates PM variable listings', () => {
-		const builder = new RuleBuilder(undefined);
+		const builder = new RuleBuilder(NO_LOAD, undefined);
 
 		const fn = function (cfg: RuleBuilder) {
 			cfg.doAny((cb: CriteriaBuilder) => {
@@ -223,7 +259,7 @@ describe('Execution workflow', () => {
 			return cfg;
 		};
 
-		run(fn);
+		run(NO_LOAD, fn);
 	});
 
 	test('Make sure type wrappers are as expected', () => {
@@ -255,7 +291,7 @@ describe('Execution workflow', () => {
 			return cfg;
 		};
 
-		run(fn);
+		run(NO_LOAD, fn);
 	});
 
 	test('Insertion via generated PAPI function', () => {
@@ -277,9 +313,9 @@ describe('Execution workflow', () => {
 			return cfg;
 		};
 
-		const papi = run(fn);
-
-		const json = papi.toPapiJson();
+		const papi = run(NO_LOAD, fn);
+		expect(papi).toBeInstanceOf(RuleBuilder);
+		const json = (papi as RuleBuilder).toPapiJson();
 
 		expect(json).toMatchObject({
 			behaviors: [
@@ -312,9 +348,9 @@ describe('Execution workflow', () => {
 			return cfg;
 		};
 
-		const papi = run(fn);
-
-		const json = papi.toPapiJson();
+		const papi = run(NO_LOAD, fn);
+		expect(papi).toBeInstanceOf(RuleBuilder);
+		const json = (papi as RuleBuilder).toPapiJson();
 
 		expect(json).toMatchObject({
 			name: 'parent name',
@@ -356,9 +392,9 @@ describe('Execution workflow', () => {
 			return cfg;
 		};
 
-		const papi = run(fn);
-
-		const json = papi.toPapiJson();
+		const papi = run(NO_LOAD, fn);
+		expect(papi).toBeInstanceOf(RuleBuilder);
+		const json = (papi as RuleBuilder).toPapiJson();
 
 		expect(json).toMatchObject({
 			// The top-most Rule won't have a line number because it was created outside of the customer's config.
@@ -408,9 +444,9 @@ describe('Execution workflow', () => {
 			return cfg;
 		};
 
-		const papi = run(fn);
-
-		const json = papi.toPapiJson();
+		const papi = run(NO_LOAD, fn);
+		expect(papi).toBeInstanceOf(RuleBuilder);
+		const json = (papi as RuleBuilder).toPapiJson();
 
 		expect(json).toMatchObject({
 			children: [
@@ -448,8 +484,9 @@ describe('Execution workflow', () => {
 			return cfg;
 		};
 
-		const papi = run(fn);
-		const json = papi.toPapiJson();
+		const papi = run(NO_LOAD, fn);
+		expect(papi).toBeInstanceOf(RuleBuilder);
+		const json = (papi as RuleBuilder).toPapiJson();
 		expect(json).toMatchObject({
 			name: 'parent name',
 			children: [
@@ -467,8 +504,9 @@ describe('Execution workflow', () => {
 			return cfg;
 		};
 
-		const papi = run(fn);
-		const json = papi.toPapiJson();
+		const papi = run(NO_LOAD, fn);
+		expect(papi).toBeInstanceOf(RuleBuilder);
+		const json = (papi as RuleBuilder).toPapiJson();
 		expect(json).toMatchObject({
 			name: 'default',
 			options: {is_secure: true},
@@ -485,9 +523,9 @@ describe('Execution workflow', () => {
 			return cfg;
 		};
 
-		const papi = run(fn);
-
-		const json = papi.toPapiJson();
+		const papi = run(NO_LOAD, fn);
+		expect(papi).toBeInstanceOf(RuleBuilder);
+		const json = (papi as RuleBuilder).toPapiJson();
 
 		expect(json).toMatchObject({
 			children: [
@@ -497,5 +535,254 @@ describe('Execution workflow', () => {
 				},
 			],
 		});
+	});
+});
+
+/**
+ * A helper function to remove ANSI code from a string.
+ *
+ * @param {string} text A string of text to remove ANSI code
+ * @returns {string} A string without ANSI code.
+ */
+function removeAnsiCodeFromStr(text: string): string {
+	// eslint-disable-next-line no-control-regex
+	const ansiRegex = /\u001b\[[0-9;]*m/g;
+	// Remove ANSI escape codes from the string
+	return text.replace(ansiRegex, '');
+}
+
+describe('Validate Static Config File (SCF) import and output', () => {
+	test('Trivial successful import with defaults inserted', () => {
+		const loader = (): string =>
+			'{"$schema":"../../schema/v2024-02-12.json","name":"default","behaviors":[{"name":"caching","options":{"behavior":"MAX_AGE","ttl":"1d","mustRevalidate":false}}]}';
+
+		const builder = new RuleBuilder(loader, undefined);
+
+		const returnedRuleBuilder = builder.importChildRuleToPath('ignored');
+
+		// Sadly there doesn't seem to be an identity operator. `===` is as close as we can get.
+		// We don't use `.toBe()` because that's a bit opaque.
+		expect(returnedRuleBuilder === builder).toBeTruthy();
+
+		const json = builder.toPapiJson();
+		expect(json).toMatchObject({
+			children: [
+				{
+					behaviors: [
+						{
+							name: 'caching',
+							options: {
+								behavior: 'MAX_AGE',
+								ttl: '1d',
+								mustRevalidate: false,
+								// below are defaults
+								enhancedRfcSupport: false,
+								honorNoStore: true,
+								honorPrivate: false,
+								honorNoCache: true,
+								honorMaxAge: true,
+								honorSMaxage: false,
+								honorMustRevalidate: false,
+								honorProxyRevalidate: false,
+							},
+						},
+					],
+				},
+			],
+		});
+	});
+
+	test('Verify that we can resolve paths relative to the calling file', () => {
+		expect(resolveImportPath('/a/b/c/config.js', '../parent.json')).toEqual('/a/b/parent.json');
+
+		expect(resolveImportPath('/a/b/c/config.js', 'peer.json')).toEqual('/a/b/c/peer.json');
+		expect(resolveImportPath('/a/b/c/config.js', './peer.json')).toEqual('/a/b/c/peer.json');
+
+		expect(resolveImportPath('/a/b/c/config.js', '/abs.json')).toEqual('/abs.json');
+
+		expect(resolveImportPath('/a/b/c/config.js', 'dir/child.json')).toEqual(`/a/b/c/dir/child.json`);
+		expect(resolveImportPath('/a/b/c/config.js', './dir/child.json')).toEqual(`/a/b/c/dir/child.json`);
+	});
+
+	test('Verify we can insert a Static Config File, and then add another child to the same node', () => {
+		// Configure a loader that only loads our path
+		const PATH = 'testPath.json';
+		const loader: SynchronousLoadFile = (absPath: string) => {
+			// We use `toContain()`, since the path has been made absolute.
+			expect(absPath).toContain(PATH);
+
+			return '{"name":"default","behaviors":[{"name":"caching","options":{"behavior":"MAX_AGE","ttl":"1d","mustRevalidate":false}}],"criteria":[{"name":"fileExtension","options":{"matchOperator":"IS_ONE_OF"}}], "children":[{"name":"Image","behaviors":[{"name":"caching","options":{"behavior":"MAX_AGE","ttl":"1d","mustRevalidate":false}}]}]}';
+		};
+
+		// Create a callback that tries an import
+		const fn = function (cfg: Property): Property {
+			cfg.onHostname({values: ['my-subdomain.example.org']}).importChildRule(PATH);
+
+			cfg.onPath({values: ['/wheee']}).setEdgeWorker({edgeWorkerId: '999'});
+
+			return cfg;
+		};
+
+		// Run
+		const ruleBuilder = run(loader, fn);
+		expect(ruleBuilder).toBeInstanceOf(RuleBuilder);
+		const papi = (ruleBuilder as RuleBuilder).toPapiJson();
+
+		// Validate
+		expect(papi).toMatchObject({
+			children: [
+				{
+					criteria: [
+						{
+							name: 'hostname',
+						},
+					],
+					children: [
+						// Here it is! The static config!
+						{
+							behaviors: [
+								{
+									name: 'caching',
+									options: {
+										behavior: 'MAX_AGE',
+										ttl: '1d',
+										mustRevalidate: false,
+										// Below are defaults
+										enhancedRfcSupport: false,
+										honorNoStore: true,
+										honorPrivate: false,
+										honorNoCache: true,
+										honorMaxAge: true,
+										honorSMaxage: false,
+										honorMustRevalidate: false,
+										honorProxyRevalidate: false,
+									},
+								},
+							],
+							criteria: [
+								{
+									name: 'fileExtension',
+									options: {
+										matchOperator: 'IS_ONE_OF',
+										// default is inserted
+										matchCaseSensitive: false,
+									},
+								},
+							],
+							children: [
+								{
+									name: 'Image',
+									behaviors: [
+										{
+											name: 'caching',
+											options: {
+												behavior: 'MAX_AGE',
+												ttl: '1d',
+												mustRevalidate: false,
+												// Below are defaults
+												enhancedRfcSupport: false,
+												honorNoStore: true,
+												honorPrivate: false,
+												honorNoCache: true,
+												honorMaxAge: true,
+												honorSMaxage: false,
+												honorMustRevalidate: false,
+												honorProxyRevalidate: false,
+											},
+										},
+									],
+								},
+							],
+							// The full path isn't included in the `__loc`, so we just make sure the current file's name is in there.
+							// We ignore the line number, because it's hard to validate.
+							__loc: expect.stringContaining(path.basename(__filename)),
+						},
+					],
+				},
+				{
+					criteria: [
+						{
+							name: 'path',
+						},
+					],
+					behaviors: [
+						{
+							name: 'edgeWorker',
+						},
+					],
+				},
+			],
+		});
+	});
+	test('Verify the raised error has correct line number', () => {
+		/* This is the raw json file to be validated. Error line should be line #5 
+		{
+
+		"$schema":"../../schema/v2024-02-12.json",
+		"name":"default",
+		"behaviors":[{"name":"bla","options":{"originSni":"should_be_bool"}}]}
+		 */
+		const loader = (): string =>
+			'{\n\n"$schema":"../../schema/v2024-02-12.json",\n"name":"default",\n"behaviors":[{"name":"bla","options":{"originSni":"should_be_bool"}}]}';
+		const builder = new RuleBuilder(loader, undefined);
+		const fn = function (cfg: RuleBuilder): RuleBuilder {
+			cfg.importChildRule('test.json');
+			return cfg;
+		};
+
+		try {
+			fn(builder);
+			fail('should throw an error');
+		} catch (err) {
+			expect(err).toBeInstanceOf(BadJsonError);
+			const errMessage = (err as BadJsonError).toString();
+			// Remove ANSI escape codes from the string
+			const errWithoutAnsi = removeAnsiCodeFromStr(errMessage);
+
+			// validation line number should be 5.
+			expect(errWithoutAnsi).toContain(
+				'> 5 | "behaviors":[{"name":"bla","options":{"originSni":"should_be_bool"}}]}',
+			);
+			expect(errWithoutAnsi).toContain('Unexpected value, should be equal to one of the allowed values');
+		}
+	});
+	test('Verify error is raised when validation fails', () => {
+		const loader = (): string =>
+			'{"name":"default","behaviors":[{"name":"invalid","options":{"behavior":"invalid"}}]}';
+		const builder = new RuleBuilder(loader, undefined);
+		const fn = function (cfg: RuleBuilder): RuleBuilder {
+			cfg.importChildRule('test.json');
+			return cfg;
+		};
+
+		try {
+			fn(builder);
+			fail('should throw an error');
+		} catch (err) {
+			expect(err).toBeInstanceOf(BadJsonError);
+			const errMessage = (err as BadJsonError).toString();
+			// Remove ANSI escape codes from the string
+			const errWithoutAnsi = removeAnsiCodeFromStr(errMessage);
+			expect(errWithoutAnsi).toContain('Unexpected value, should be equal to one of the allowed values');
+		}
+	});
+	test('Verify error is raised when required property is missing', () => {
+		const loader = (): string =>
+			'{"$schema":"../../schema/v2024-02-12.json","name":"default","behaviors":[{"name":"cpCode","options":{"value":{}}}]}';
+
+		const builder = new RuleBuilder(loader, undefined);
+		const fn = function (cfg: RuleBuilder): RuleBuilder {
+			cfg.importChildRule('test.json');
+			return cfg;
+		};
+
+		try {
+			fn(builder);
+			fail('should throw an error');
+		} catch (err) {
+			expect(err).toBeInstanceOf(BadJsonError);
+			const errMessage = (err as BadJsonError).toString();
+			expect(errMessage).toContain("must have required property 'id'");
+		}
 	});
 });

@@ -1,0 +1,38 @@
+{
+    "compilerOptions": {
+        "target": "ESNext", /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
+        "module": "CommonJS", /* Specify what module code is generated. */
+        "declaration": true,
+        "declarationDir": "./out/",
+        "rootDir": "./", /* Specify the root folder within your source files. */
+        "moduleResolution": "node", /* Specify how TypeScript looks up a file from a given module specifier. */
+        "typeRoots": [
+            "node_modules/@types"
+        ], /* Specify multiple folders that act like './node_modules/@types'. */
+        "types": [
+            "node",
+            "jest"
+        ], /* Specify type package names to be included without being referenced in a source file. */
+        "baseUrl": "./",
+        "outDir": "./out/", /* Specify an output folder for all emitted files. */
+        "esModuleInterop": true, /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */
+        "forceConsistentCasingInFileNames": true, /* Ensure that casing is correct in imports. */
+        /* Type Checking */
+        "strict": true, /* Enable all strict type-checking options. */
+        "noImplicitAny": true, /* Enable error reporting for expressions and declarations with an implied 'any' type. */
+        "strictNullChecks": true, /* When type checking, take into account 'null' and 'undefined'. */
+        "strictFunctionTypes": true, /* When assigning functions, check to ensure parameters and the return values are subtype-compatible. */
+        "noImplicitThis": true, /* Enable error reporting when 'this' is given the type 'any'. */
+        "noUnusedLocals": true, /* Enable error reporting when local variables aren't read. */
+        "noUnusedParameters": true, /* Raise an error when a function parameter isn't read. */
+        "noImplicitReturns": true, /* Enable error reporting for codepaths that do not explicitly return in a function. */
+        "allowJs": true,
+        "resolveJsonModule": true, /* We want to import the package.json so we can extract our version. */
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        "inlineSourceMap": false
+    },
+    "include": [
+        "src/**/*"
+    ],
+}

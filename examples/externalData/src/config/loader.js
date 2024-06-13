@@ -7,17 +7,19 @@
  *
  * https://github.com/akamai/akj-tech-preview/blob/main/LICENSE.md
  */
+//@ts-check
 
 const Enum = require('enum');
 const {readFileSync} = require('node:fs');
 const {createHash} = require('node:crypto');
 
+// @ts-ignore
 const ENVIRONMENTS = new Enum(['prod', 'stag', 'dev'], {ignoreCase: true});
 
 /**
  * Get the current environment for loading the configuration.
  *
- * @param {string} env An enum based on the environment the code is running.
+ * @param {string | undefined} env An enum based on the environment the code is running.
  * @returns {Enum} The environment. Default to DEVELOPMENT if the provided string is not found.
  */
 function getEnvironment(env) {

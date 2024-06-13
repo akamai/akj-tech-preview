@@ -9,6 +9,8 @@
  */
 // @ts-check
 
+const {Property} = require('akj-tech-preview');
+
 // change these to setup default origins
 const defaultOriginHostname = 'example.com';
 const defaultCPCode = 1234;
@@ -21,7 +23,7 @@ const breakConnectionHeaderValue = '1234';
 /**
  * Create the Augment Insites grouping on the default rule
  *
- * @param {import('../../../types/src/types').Property} config The top level of the property
+ * @param {Property} config The top level of the property
  */
 function augmentInsights(config) {
 	const augmentInsightsGroup = config.group(
@@ -66,7 +68,7 @@ function augmentInsights(config) {
 /**
  * Create the Accelerate Delivery grouping on the default rule
  *
- * @param {import('../../../types/src/types').Property} config The top level of the property
+ * @param {Property} config The top level of the property
  */
 function accelerateDelivery(config) {
 	const accelerateDeliveryGroup = config.group(
@@ -150,7 +152,7 @@ function accelerateDelivery(config) {
 /**
  * Create the Offload Origin grouping on the default rule
  *
- * @param {import('../../../types/src/types').Property} config The top level of the property
+ * @param {Property} config The top level of the property
  */
 function offloadOrigin(config) {
 	const offloadOriginGroup = config
@@ -336,7 +338,7 @@ function offloadOrigin(config) {
 /**
  * Create the Strengthen Security grouping on the default rule
  *
- * @param {import('../../../types/src/types').Property} config The top level of the property
+ * @param {Property} config The top level of the property
  */
 function strengthenSecurity(config) {
 	const strengthenSecurityGroup = config.group(
@@ -397,7 +399,7 @@ function strengthenSecurity(config) {
 /**
  * Create the Strengthen Security grouping on the default rule
  *
- * @param {import('../../../types/src/types').Property} config The top level of the property
+ * @param {Property} config The top level of the property
  */
 function increaseAvailability(config) {
 	const increaseAvailabilityGroup = config.group(
@@ -448,8 +450,7 @@ function increaseAvailability(config) {
 /**
  * Create the Minimize Payload grouping on the default rule
  *
- * @param {import('../../../types/src/types').Property} config A builder that controls the configuration of the
- *   property.
+ * @param {Property} config A builder that controls the configuration of the property.
  */
 function minimizePayload(config) {
 	config
@@ -494,8 +495,7 @@ function minimizePayload(config) {
  * Called by the PCDN runner to configure the property referenced in `property.json`. To activate the configuring on
  * staging, run `npx pcdn` in the parent directory.
  *
- * @param {import('../../../types/src/types').Property} config A builder that controls the configuration of the
- *   property.
+ * @param {Property} config A builder that controls the configuration of the property.
  */
 function onConfig(config) {
 	// setup the default origin

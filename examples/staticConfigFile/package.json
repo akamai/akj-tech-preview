@@ -1,0 +1,14 @@
+{
+  "name": "staticconfigfile",
+  "version": "1.0.0",
+  "description": "Example of a Static Configuration File being imported",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "akj-tech-preview": "^1.4.0"
+  }
+}

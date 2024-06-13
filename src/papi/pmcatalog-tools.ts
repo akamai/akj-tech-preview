@@ -680,6 +680,9 @@ export class Catalog {
 				pointer === '#/definitions/catalog/option_types/random'
 			) {
 				type = 'string';
+			} else if (pointer === '#/definitions/catalog/option_types/cpcode') {
+				type =
+					'{id: number, name?: string, description?: string, createdDate?: number, cpCodeLimits?: Array<string>, products?: Array<string>}';
 			} else {
 				// These are unknown and unhandled reference types. We can add to them over time.
 				type = 'any';

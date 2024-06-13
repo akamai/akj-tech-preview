@@ -9,6 +9,8 @@
  */
 //@ts-check
 
+const {Property} = require('akj-tech-preview');
+
 /**
  * An `onConfig` function featuring the bare minimum needed to create a Property:
  *
@@ -16,7 +18,7 @@
  * - CP Code
  * - Origin
  *
- * @param {import('../../../types/src/types').Property} config The Property object
+ * @param {Property} config The Property object
  */
 function onConfig(config) {
 	config.setCaching({

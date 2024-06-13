@@ -1,0 +1,24 @@
+{
+	"plugins": ["prettier-plugin-jsdoc"],
+	"tsdoc":true,
+	"arrowParens": "avoid",
+	"bracketSpacing": false,
+	"endOfLine": "lf",
+	"htmlWhitespaceSensitivity": "css",
+	"printWidth": 120,
+	"proseWrap": "preserve",
+	"requirePragma": false,
+	"semi": true,
+	"singleQuote": true,
+	"tabWidth": 4,
+	"trailingComma": "all",
+	"useTabs": true,
+	"overrides": [
+		{
+			"files": "*.json",
+			"options": {
+				"printWidth": 200
+			}
+		}
+	]
+}
